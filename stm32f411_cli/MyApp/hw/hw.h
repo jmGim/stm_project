@@ -4,6 +4,7 @@
 #include "hw_def.h"
 #include "led.h"
 #include "uart.h"
+#include "my_gpio.h"
 
 void hwInit(void);
 

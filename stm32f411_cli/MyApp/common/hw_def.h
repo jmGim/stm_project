@@ -5,5 +5,6 @@
 #include "def.h"
 #include "main.h"
 #include "hw.h"
+#include "my_gpio.h" // main.h 보다 나중에 include 해야함. main.h에서 stm32f4xx_hal.h를 include 하기 때문
 
 #endif //__HW_HW_DEF_H_

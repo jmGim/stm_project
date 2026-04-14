@@ -1,1 +1,46 @@
-/.metadata
+# STM32CubeIDE / Eclipse Specific
+.metadata/
+.settings/
+.project
+.cproject
+.launch
+
+# Build Directories (Debug/Release)
+Debug/
+Release/
+build/
+bin/
+obj/
+
+# STM32CubeMX Generated/Temporary Files
+*.ioc.backup
+*.mxproject
+*/.mxproject
+*.tmp
+*.TMP
+
+# Ignore everything in the subfolder except src, inc, and .ioc files
+# (This ensures ONLY source/project files are committed)
+**/Debug/
+**/Release/
+**/build/
+**/bin/
+**/.settings/
+**/.project
+**/.cproject
+**/.launch
+
+# Keep essential project files
+!.ioc
+!*.ioc
+!*.c
+!*.h
+!*.cpp
+!*.s
+!*.ld
+!Makefile
+!*.tcl
+
+# Optional: Ignore specific files
+# .DS_Store
+# thumbs.db
