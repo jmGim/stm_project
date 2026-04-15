@@ -1,4 +1,4 @@
-// #include "button.h"
+#include "button.h"
 #include "hw_def.h"
 #include "hw.h"
 #include "cli.h"
