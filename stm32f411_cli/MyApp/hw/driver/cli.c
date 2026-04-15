@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
+#include "cmsis_os2.h"
 
 #define CLI_LINE_BUF_MAX 32
 #define CLI_CMD_LIST_MAX 32
@@ -30,6 +30,143 @@ static uint8_t cli_hist_count = 0; // 방향키 눌렸을 때 cli_history_buf에
 static uint8_t cli_hist_write = 0;
 static uint8_t cli_hist_depth = 0;
 
+typedef enum {
+  CLI_STATE_NORMAL = 0,
+  CLI_STATE_ESC_RCVD = 1,
+  CLI_STATE_BRACKET_RCVD = 2
+} cli_input_state_t;
+
+static cli_input_state_t input_state = CLI_STATE_NORMAL;
+
+// refactoring CLI functions 
+// static void cliRedrawTail(void){
+
+// }
+static void handleEnterKey(void) {
+
+  cliPrintf("\r\n");
+
+  cli_line_buf[cli_line_idx] = '\0'; //
+  // 실행전 히스토리 버퍼에 복사 - 나중에 방향키 눌렀을 때 사용
+  strncpy(cli_history_buf[cli_hist_write], cli_line_buf, CLI_LINE_BUF_MAX - 1);
+  cli_hist_write = (cli_hist_write + 1) % CLI_HIST_MAX;
+  cli_hist_depth = 0;
+
+  if (cli_hist_count < CLI_HIST_MAX) {
+    cli_hist_count++;
+  }
+
+  cliParseArgs(cli_line_buf);
+  cliRunCommand();
+
+  cliPrintf("CLI> ");
+  cli_line_idx = 0;
+}
+static void handleBackspace(void){
+  // delete   else if (rx_data == '\b' || rx_data == 127) {
+          if (cli_line_idx > 0) {
+            cli_line_idx--;
+            cliPrintf("\b \b");
+          }
+       // }
+}
+static void handleCharInsert(uint8_t rx_data){
+  // uint8_t rx_data = c;
+  cliPrintf("%c", rx_data);
+  cli_line_buf[cli_line_idx++] = rx_data;
+  if (cli_line_idx >= CLI_LINE_BUF_MAX)
+    cli_line_idx = 0;
+}
+static void handleArrowKeys(uint8_t rx_data){
+    if (rx_data == 'A') { // Up arrow
+      if (cli_hist_depth < cli_hist_count) {
+        cli_hist_depth++;
+        for (uint16_t i = 0; i < cli_line_idx; i++) {
+          cliPrintf("\b \b");
+        }
+        int idx = (cli_hist_write + CLI_HIST_MAX - cli_hist_depth) % CLI_HIST_MAX;
+
+        strncpy(cli_line_buf, cli_history_buf[hist_index], CLI_LINE_BUF_MAX);
+        cli_line_idx = strlen(cli_line_buf);
+        cliPrintf("\r\nCLI> %s", cli_line_buf);
+
+      //   if (cli_hist_depth < cli_hist_count) {
+      //   cli_hist_depth++;
+      //   uint8_t hist_index =
+      //       (cli_hist_write + CLI_HIST_MAX - cli_hist_depth) % CLI_HIST_MAX;
+      //   strncpy(cli_line_buf, cli_history_buf[hist_index], CLI_LINE_BUF_MAX);
+      //   cli_line_idx = strlen(cli_line_buf);
+      //   cliPrintf("\r\nCLI> %s", cli_line_buf);
+      // }
+      }
+    } else if (rx_data == 'B') { // Down arrow
+      for (uint16_t i = 0; i < cli_line_idx; i++)   /// omitting current line
+      {/// omitting current line
+        cliPrintf("\b \b");/// omitting current line
+      }/// omitting current line
+      if (cli_hist_depth == 0)/// omitting current line
+      {/// omitting current line
+        cli_line_buf[0] = '\0';/// omitting current line
+        cli_line_idx = 0;/// omitting current line
+      }/// omitting current line
+      else
+      { // 중간 깊이일 경우
+        int idx = (cli_hist_write + CLI_HIST_MAX - cli_hist_depth) % CLI_HIST_MAX;   /// omitting current line
+        strncpy(cli_line_buf, cli_history_buf[hist_index], CLI_LINE_BUF_MAX- 1);
+        cliPrintf("%s", cli_line_buf);
+        cli_line_idx = strlen(cli_line_buf);
+      }
+    } else if (rx_data == 'C') { // right
+                                 // cliPrintf("RIGHT\r\n");
+    } else if (rx_data == 'D') { // left
+                                 // cliPrintf("LEFT\r\n");
+    } 
+}
+static void processAnsiEscape(uint8_t rx_data){
+    if (input_state == CLI_STATE_ESC_RCVD) {
+      if (rx_data == '[') {
+        input_state = CLI_STATE_BRACKET_RCVD;
+      } else {
+        input_state = CLI_STATE_NORMAL;
+      }
+    } else if(input_state == CLI_STATE_BRACKET_RCVD) {
+      handleArrowKeys(rx_data);
+      input_state = CLI_STATE_NORMAL; // add
+    }
+}
+
+void cliMain(void) {
+  if (uartAvailable(0) == 0)
+    return;
+
+  uint8_t rx_data = uartRead(0);
+  if (input_state != CLI_STATE_NORMAL)
+  {
+    processAnsiEscape(rx_data);
+    return;
+  }
+  switch (rx_data)
+  {
+  case 0x1B: // esc
+    input_state = CLI_STATE_ESC_RCVD;
+    break;
+  case '\r':
+  case '\n':
+    handleEnterKey();
+    break;
+  case '\b': // backspace
+  case 127:
+    handleBackspace();
+    break;
+  default:
+    if (32 <= rx_data && rx_data <= 126)
+      handleCharInsert(rx_data);
+    break;
+  }
+  
+
+
+}
 
 static void cliHelp(uint8_t argc, char *argv[]) {
   cliPrintf("-------------CLI Commands--------------");
@@ -106,92 +243,91 @@ bool cliAdd(const char *cmd_str, void (*cmd_func)(uint8_t argc, char **argv)) {
   return true;
 }
 
-void cliMain() {
-  if (uartAvailable(0) > 0) {
-    uint8_t rx_data = uartRead(0);
+// void cliMain__() {
+//   if (uartAvailable(0) > 0) {
+//     uint8_t rx_data = uartRead(0);
+//     if (esc_state == 0) {
+//       if ((rx_data == 0x1B)) { // ESC
+//         esc_state = 1;
+//       } else {
+//         if ((rx_data == '\r') || (rx_data == '\n')) {
 
-    if (esc_state == 0) {
-      if ((rx_data == 0x1B)) {
-        esc_state = 1;
-      } else {
-        if ((rx_data == '\r') || (rx_data == '\n')) {
+//           cliPrintf("\r\n");
 
-          cliPrintf("\r\n");
+//           cli_line_buf[cli_line_idx] = '\0'; // 
+//           // 실행전 히스토리 버퍼에 복사 - 나중에 방향키 눌렀을 때 사용
+//           strncpy(cli_history_buf[cli_hist_write], cli_line_buf, CLI_LINE_BUF_MAX);
+//           cli_hist_write = (cli_hist_write + 1) % CLI_HIST_MAX;
+//           cli_hist_depth = 0;
 
-          cli_line_buf[cli_line_idx] = '\0';
-          // 실행전 히스토리 버퍼에 복사 - 나중에 방향키 눌렀을 때 사용
-          strncpy(cli_history_buf[cli_hist_write], cli_line_buf, CLI_LINE_BUF_MAX);
-          cli_hist_write = (cli_hist_write + 1) % CLI_HIST_MAX;
-          cli_hist_depth = 0;
+//           if(cli_hist_count < CLI_HIST_MAX) {
+//             cli_hist_count++;
+//           } 
 
-          if(cli_hist_count < CLI_HIST_MAX) {
-            cli_hist_count++;
-          } 
+//           cliParseArgs(cli_line_buf);
+//           cliRunCommand();
 
-          cliParseArgs(cli_line_buf);
-          cliRunCommand();
+//           cliPrintf("CLI> ");
+//           cli_line_idx = 0;
+//         } else if (rx_data == '\b' || rx_data == 127) {
+//           if (cli_line_idx > 0) {
+//             cli_line_idx--;
+//             cliPrintf("\b \b");
+//           }
+//         } else {
+//           cliPrintf("%c", rx_data);
+//           cli_line_buf[cli_line_idx++] = rx_data;
+//           if (cli_line_idx >= CLI_LINE_BUF_MAX)
+//             cli_line_idx = 0;
+//         }
+//       }
+//     }
 
-          cliPrintf("CLI> ");
-          cli_line_idx = 0;
-        } else if (rx_data == '\b' || rx_data == 127) {
-          if (cli_line_idx > 0) {
-            cli_line_idx--;
-            cliPrintf("\b \b");
-          }
-        } else {
-          cliPrintf("%c", rx_data);
-          cli_line_buf[cli_line_idx++] = rx_data;
-          if (cli_line_idx >= CLI_LINE_BUF_MAX)
-            cli_line_idx = 0;
-        }
-      }
-    }
+//     else if (esc_state == 1) {
+//       if (rx_data == '[') {
+//         esc_state = 2;
+//       } else {
+//         esc_state = 0;
+//       }
+//     } else if (esc_state == 2) {
+//       if (rx_data == 'A') { // up
+//         if(cli_hist_depth < cli_hist_count) {
+//             cli_hist_depth++;
+//             for (uint16_t i = 0; i < cli_line_idx; i++) {
+//                 cliPrintf("\b \b");
+//             }
+//             int idx = (cli_hist_write + CLI_HIST_MAX - cli_hist_depth) % CLI_HIST_MAX;
+//             strncpy(cli_line_buf, cli_history_buf[idx], CLI_LINE_BUF_MAX - 1);
+//         }
+//         // cliPrintf("%s", cli_history_buf);
+//         // strncpy(cli_line_buf, cli_history_buf, CLI_LINE_BUF_MAX - 1);
+//         cli_line_idx = strlen(cli_line_buf);
+//         cliPrintf("%s", cli_line_buf);
 
-    else if (esc_state == 1) {
-      if (rx_data == '[') {
-        esc_state = 2;
-      } else {
-        esc_state = 0;
-      }
-    } else if (esc_state == 2) {
-      if (rx_data == 'A') { // up
-        if(cli_hist_depth < cli_hist_count) {
-            cli_hist_depth++;
-            for (uint16_t i = 0; i < cli_line_idx; i++) {
-                cliPrintf("\b \b");
-            }
-            int idx = (cli_hist_write + CLI_HIST_MAX - cli_hist_depth) % CLI_HIST_MAX;
-            strncpy(cli_line_buf, cli_history_buf[idx], CLI_LINE_BUF_MAX - 1);
-        }
-        // cliPrintf("%s", cli_history_buf);
-        // strncpy(cli_line_buf, cli_history_buf, CLI_LINE_BUF_MAX - 1);
-        cli_line_idx = strlen(cli_line_buf);
-        cliPrintf("%s", cli_line_buf);
-
-      } else if (rx_data == 'B') { // down
-        if(cli_hist_depth > 0) {
-          cli_hist_depth--;
-            for (uint16_t i = 0; i < cli_line_idx; i++) {
-                cliPrintf("\b \b");
-            }
-            if(cli_hist_depth == 0) {
-                cli_line_buf[0] = '\0';
-                cli_line_idx = 0;
-                // cliPrintf("%s", cli_line_buf);
-            } else { // 중간 깊이인 경우
-                int idx = (cli_hist_write + CLI_HIST_MAX - cli_hist_depth) % CLI_HIST_MAX;
-                strncpy(cli_line_buf, cli_history_buf[idx], CLI_LINE_BUF_MAX - 1);
-                cliPrintf("%s", cli_line_buf);
-                cli_line_idx = strlen(cli_line_buf);
-            }
-        }
-      } else if (rx_data == 'C') { // right
-                                   // cliPrintf("RIGHT\r\n");
-      } else if (rx_data == 'D') { // left
-                                   // cliPrintf("LEFT\r\n");
-      } else {
-        esc_state = 0;
-      }
-    }
-  }
-}
+//       } else if (rx_data == 'B') { // down
+//         if(cli_hist_depth > 0) {
+//           cli_hist_depth--;
+//             for (uint16_t i = 0; i < cli_line_idx; i++) {
+//                 cliPrintf("\b \b");
+//             }
+//             if(cli_hist_depth == 0) {
+//                 cli_line_buf[0] = '\0';
+//                 cli_line_idx = 0;
+//                 // cliPrintf("%s", cli_line_buf);
+//             } else { // 중간 깊이인 경우
+//                 int idx = (cli_hist_write + CLI_HIST_MAX - cli_hist_depth) % CLI_HIST_MAX;
+//                 strncpy(cli_line_buf, cli_history_buf[idx], CLI_LINE_BUF_MAX - 1);
+//                 cliPrintf("%s", cli_line_buf);
+//                 cli_line_idx = strlen(cli_line_buf);
+//             }
+//         }
+//       } else if (rx_data == 'C') { // right
+//                                    // cliPrintf("RIGHT\r\n");
+//       } else if (rx_data == 'D') { // left
+//                                    // cliPrintf("LEFT\r\n");
+//       } else {
+//         esc_state = 0;
+//       }
+//     }
+//   }
+// }

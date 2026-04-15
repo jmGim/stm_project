@@ -6,10 +6,7 @@
 #include "my_gpio.h"
 #include "stm32f4xx_hal.h"
 #include "uart.h"
-#include "button.h"
-// #include "FreeRTOS.h"
-// #include "task.h"
-#include "cmsis_os.h"
+
 
 #include <stdint.h>
 #include <string.h>
@@ -27,9 +24,7 @@ void cliButton(uint8_t argc, char **argv){
             buttonEnable(false);
             
             cliPrintf("Button Interrupt Report : Disabled\r\n");
-        } else {
-            cliPrintf("Usage: button [enable|disable]\r\n");
-        }
+        } 
     } else {
         cliPrintf("Usage: button [enable|disable]\r\n");
         cliPrintf("Current Status : %s\r\n", buttonGetEnable() ? "Enabled" : "Disabled");
@@ -148,7 +143,7 @@ void cliGpio(uint8_t argc, char **argv){
 static uint32_t led_toggle_period = 0;
 
 void cliLed(uint8_t argc, char **argv) {
-  if (argc == 2) {
+  if (argc >= 2) {
     if (strcmp(argv[1], "on") == 0) {
       led_toggle_period = 0; // Disable automatic toggling
       ledOn();
@@ -161,9 +156,9 @@ void cliLed(uint8_t argc, char **argv) {
       if(argc == 3) {
         led_toggle_period = atoi(argv[2]);
         if (led_toggle_period > 0) {
-          cliPrintf("LED will toggle every %d ms\r\n", led_toggle_period);
+          cliPrintf("LED  Auto-Toggled!!\r\n");
         } else {
-          cliPrintf("Invalid toggle period. LED will toggle once.\r\n");
+          cliPrintf("Invalid toggle period.\r\n");
         }
         
       }  
@@ -244,16 +239,15 @@ void ledSystemTask(void *argument) {
     } else {
       osDelay(50); // Check every 100ms if the toggle period has been set
     }
-    ledToggle();
+    // ledToggle();
     // vTaskDelay(1000);  // = osDelay(1000); // FreeRTOS의 딜레이 함수, 다른 Task의 실행을 허용하면서 현재 Task를 대기 상태로 만듦.
     // HAL_Delay(1000); // 전체 시스템이 멈춤
-    osDelay(1000); // FreeRTOS의 딜레이 함수, 다른 Task의 실행을 허용하면서 현재 Task를 대기 상태로 만듦.
+    // osDelay(1000); // FreeRTOS의 딜레이 함수, 다른 Task의 실행을 허용하면서 현재 Task를 대기 상태로 만듦.
   }
 }
 
 void apMain(void) {
 
-  
   uartPrintf(0, "LED Task Started!\r\n");
   while (1) {
     cliMain();
