@@ -1,11 +1,15 @@
 
 #include "bsp.h"
 #include "cli.h"
+#include "cmsis_os2.h"
 #include "hw_def.h"
 #include "my_gpio.h"
 #include "stm32f4xx_hal.h"
 #include "uart.h"
 #include "button.h"
+// #include "FreeRTOS.h"
+// #include "task.h"
+#include "cmsis_os.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -141,22 +145,40 @@ void cliGpio(uint8_t argc, char **argv){
     }
 }
 
+static uint32_t led_toggle_period = 0;
+
 void cliLed(uint8_t argc, char **argv) {
   if (argc == 2) {
     if (strcmp(argv[1], "on") == 0) {
+      led_toggle_period = 0; // Disable automatic toggling
       ledOn();
       cliPrintf("LED ON\r\n");
     } else if (strcmp(argv[1], "off") == 0) {
+      led_toggle_period = 0; // Disable automatic toggling
       ledOff();
       cliPrintf("LED OFF\r\n");
     } else if (strcmp(argv[1], "toggle") == 0) {
-      ledToggle();
-      cliPrintf("LED TOGGLE\r\n");
+      if(argc == 3) {
+        led_toggle_period = atoi(argv[2]);
+        if (led_toggle_period > 0) {
+          cliPrintf("LED will toggle every %d ms\r\n", led_toggle_period);
+        } else {
+          cliPrintf("Invalid toggle period. LED will toggle once.\r\n");
+        }
+        
+      }  
+      else {
+        led_toggle_period  = 0; // Disable automatic toggling
+        ledToggle();
+        cliPrintf("LED TOGGLE\r\n");
+      }
     } else {
-      cliPrintf("Invalid Command\r\n");
+       cliPrintf("Invalid Command\r\n");
     }
   } else {
     cliPrintf("Usage: led [on|off|toggle]\r\n");
+    cliPrintf("       led toggle \r\n");
+    cliPrintf("       led toggle [period_ms]\r\n");
   }
 }
 
@@ -213,11 +235,29 @@ void apInit(void) {
 
 
 }
+
+void ledSystemTask(void *argument) {
+  while (1) {
+    if (led_toggle_period > 0) {
+      ledToggle();
+      osDelay(led_toggle_period); // Toggle LED every 1000ms (1 second)
+    } else {
+      osDelay(50); // Check every 100ms if the toggle period has been set
+    }
+    ledToggle();
+    // vTaskDelay(1000);  // = osDelay(1000); // FreeRTOS의 딜레이 함수, 다른 Task의 실행을 허용하면서 현재 Task를 대기 상태로 만듦.
+    // HAL_Delay(1000); // 전체 시스템이 멈춤
+    osDelay(1000); // FreeRTOS의 딜레이 함수, 다른 Task의 실행을 허용하면서 현재 Task를 대기 상태로 만듦.
+  }
+}
+
 void apMain(void) {
 
-  uartPrintf(0, "Hello World!\r\n");
+  
+  uartPrintf(0, "LED Task Started!\r\n");
   while (1) {
     cliMain();
+    osDelay(1);
   }
 }
 
