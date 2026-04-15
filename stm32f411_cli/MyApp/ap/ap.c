@@ -5,10 +5,32 @@
 #include "my_gpio.h"
 #include "stm32f4xx_hal.h"
 #include "uart.h"
+#include "button.h"
+
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <sys/types.h>
+
+// button on/off --> enable/disable
+void cliButton(uint8_t argc, char **argv){
+    if(argc == 2) {
+        if(strcmp(argv[1], "enable") == 0) {
+            buttonEnable(true);
+            cliPrintf("Button Interrupt Report : Enabled\r\n");
+        } else if(strcmp(argv[1], "disable") == 0) {
+            buttonEnable(false);
+            
+            cliPrintf("Button Interrupt Report : Disabled\r\n");
+        } else {
+            cliPrintf("Usage: button [enable|disable]\r\n");
+        }
+    } else {
+        cliPrintf("Usage: button [enable|disable]\r\n");
+        cliPrintf("Current Status : %s\r\n", buttonGetEnable() ? "Enabled" : "Disabled");
+    }
+}
 
 
 static bool isSafeAddress(uint32_t addr) {
@@ -186,6 +208,7 @@ void apInit(void) {
   cliAdd("sys", cliSys);
   cliAdd("gpio", cliGpio);
   cliAdd("md", cliMd);
+  cliAdd("button", cliButton);
 //   cliAdd("cls", cliclear);
 
 

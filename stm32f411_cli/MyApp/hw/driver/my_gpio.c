@@ -58,6 +58,7 @@ int8_t gpioExtRead(uint8_t port_idx, uint8_t pin_num) {
         return -1; // Invalid pin number
     }   
 
+      // output pin -> input pin으로 변경 (출력이 안나감)
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     GPIO_InitStruct.Pin = (1 << pin_num);
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT; 
