@@ -2,7 +2,7 @@
 #define __HW_DRIVER_UART_H__
 
 #include "hw_def.h"
-#include <stdint.h>
+
 
 
 bool uartInit(void);

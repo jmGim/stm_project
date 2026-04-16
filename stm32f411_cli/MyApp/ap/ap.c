@@ -1,40 +1,29 @@
 
-#include "def.h"
 #include "ap.h"
 
-
-
-#include "bsp.h"
-#include "cli.h"
-#include "cmsis_os2.h"
-#include "hw_def.h"
-#include "my_gpio.h"
-#include "stm32f4xx_hal.h"
-#include "uart.h"
-
-
-#include <stdint.h>
-#include <string.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <sys/types.h>
-
 static uint32_t temp_period = 0;
+
 void cliTemp(uint8_t argc, char **argv) {
   if (argc == 1) {
+    if(temp_period > 0) {
+      tempStopAuto();
+    }
     temp_period = 0; // Disable periodic reporting
-    float temp = tempRead();
-    cliPrintf("Current Temperature: %.2f °C\r\n", temp);
+    float t = tempReadSingle();
+    cliPrintf("Current Temperature: %.2f °C\r\n", t);
   } else if (argc == 2) {
     int period = atoi(argv[1]);
     if (period > 0) {
+      tempStartAuto();
       temp_period = period;
       cliPrintf("Temperature reporting every %d ms\r\n", temp_period);
     } else {
+      tempStopAuto();
       cliPrintf("Invalid period. Please provide a positive integer.\r\n");
     }
 
   } else {
+    tempStopAuto();
     cliPrintf("Usage: temp\r\n");
     cliPrintf("       temp [period_ms]\r\n");
   }
@@ -263,25 +252,23 @@ void ledSystemTask(void *argument) {
 void tempSystemTask(void *argument) {
   while (1) {
     if (temp_period > 0) {
-      float t = tempRead();
+      float t = tempReadAuto();
       cliPrintf("Temperature: %.2f °C\r\n", t);
       osDelay(temp_period); // 2초마다 온도 읽기
     }
-   else {
-    osDelay(50);
-   }
+    else {
+      osDelay(50);
+    }
   }
 }
 
-void startDefaultTask(void *argument) {
-  // #include "ap.h"
+void StartDefaultTask(void *argument) {
   apInit();
-  apMain();
-
+  
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    apMain();
   }
 }
 void apInit(void) {
