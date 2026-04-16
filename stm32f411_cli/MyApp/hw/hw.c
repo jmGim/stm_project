@@ -1,4 +1,5 @@
 #include "button.h"
+#include "driver/temp.h"
 #include "hw_def.h"
 #include "hw.h"
 #include "cli.h"
@@ -12,5 +13,5 @@ void hwInit(void)
     uartInit();
     cliInit();  
     buttonInit();
-
+    tempInit();
 }

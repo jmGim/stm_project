@@ -25,7 +25,7 @@ static uint8_t cli_line_idx = 0;
 
 #define CLI_HIST_MAX 10
 static char cli_history_buf[CLI_HIST_MAX][CLI_LINE_BUF_MAX];
-static uint8_t esc_state = 0; // 방향키 or backspace 눌림:
+// static uint8_t esc_state = 0; // 방향키 or backspace 눌림:
 static uint8_t cli_hist_count = 0; // 방향키 눌렸을 때 cli_history_buf에서 꺼내서 cli_line_buf에 복사 후
 static uint8_t cli_hist_write = 0;
 static uint8_t cli_hist_depth = 0;
@@ -86,8 +86,8 @@ static void handleArrowKeys(uint8_t rx_data){
         }
         int idx = (cli_hist_write + CLI_HIST_MAX - cli_hist_depth) % CLI_HIST_MAX;
 
-        strncpy(cli_line_buf, cli_history_buf[hist_index], CLI_LINE_BUF_MAX);
-        cli_line_idx = strlen(cli_line_buf);
+        strncpy(cli_line_buf, cli_history_buf[idx], CLI_LINE_BUF_MAX - 1);
+        cli_line_idx = strlen(cli_line_buf); 
         cliPrintf("\r\nCLI> %s", cli_line_buf);
 
       //   if (cli_hist_depth < cli_hist_count) {
@@ -112,7 +112,7 @@ static void handleArrowKeys(uint8_t rx_data){
       else
       { // 중간 깊이일 경우
         int idx = (cli_hist_write + CLI_HIST_MAX - cli_hist_depth) % CLI_HIST_MAX;   /// omitting current line
-        strncpy(cli_line_buf, cli_history_buf[hist_index], CLI_LINE_BUF_MAX- 1);
+        strncpy(cli_line_buf, cli_history_buf[idx], CLI_LINE_BUF_MAX- 1);
         cliPrintf("%s", cli_line_buf);
         cli_line_idx = strlen(cli_line_buf);
       }

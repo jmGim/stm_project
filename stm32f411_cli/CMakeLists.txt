@@ -42,6 +42,10 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined library search paths
 )
 
+target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
+    # Add user defined linker options
+    -u _printf_float
+)
 
 # Add sources to executable
 file(GLOB_RECURSE SRC_FILES "MyApp/*.c")

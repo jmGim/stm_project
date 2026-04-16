@@ -1,4 +1,9 @@
 
+#include "def.h"
+#include "ap.h"
+
+
+
 #include "bsp.h"
 #include "cli.h"
 #include "cmsis_os2.h"
@@ -14,6 +19,26 @@
 #include <ctype.h>
 #include <sys/types.h>
 
+static uint32_t temp_period = 0;
+void cliTemp(uint8_t argc, char **argv) {
+  if (argc == 1) {
+    temp_period = 0; // Disable periodic reporting
+    float temp = tempRead();
+    cliPrintf("Current Temperature: %.2f °C\r\n", temp);
+  } else if (argc == 2) {
+    int period = atoi(argv[1]);
+    if (period > 0) {
+      temp_period = period;
+      cliPrintf("Temperature reporting every %d ms\r\n", temp_period);
+    } else {
+      cliPrintf("Invalid period. Please provide a positive integer.\r\n");
+    }
+
+  } else {
+    cliPrintf("Usage: temp\r\n");
+    cliPrintf("       temp [period_ms]\r\n");
+  }
+}
 // button on/off --> enable/disable
 void cliButton(uint8_t argc, char **argv){
     if(argc == 2) {
@@ -218,18 +243,6 @@ void cliSys(uint8_t argc, char **argv) {
   }
 }
 
-void apInit(void) {
-  hwInit();
-  cliAdd("led", cliLed);
-  cliAdd("info", cliInfo);
-  cliAdd("sys", cliSys);
-  cliAdd("gpio", cliGpio);
-  cliAdd("md", cliMd);
-  cliAdd("button", cliButton);
-//   cliAdd("cls", cliclear);
-
-
-}
 
 void ledSystemTask(void *argument) {
   while (1) {
@@ -244,6 +257,45 @@ void ledSystemTask(void *argument) {
     // HAL_Delay(1000); // 전체 시스템이 멈춤
     // osDelay(1000); // FreeRTOS의 딜레이 함수, 다른 Task의 실행을 허용하면서 현재 Task를 대기 상태로 만듦.
   }
+}
+
+
+void tempSystemTask(void *argument) {
+  while (1) {
+    if (temp_period > 0) {
+      float t = tempRead();
+      cliPrintf("Temperature: %.2f °C\r\n", t);
+      osDelay(temp_period); // 2초마다 온도 읽기
+    }
+   else {
+    osDelay(50);
+   }
+  }
+}
+
+void startDefaultTask(void *argument) {
+  // #include "ap.h"
+  apInit();
+  apMain();
+
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+}
+void apInit(void) {
+  hwInit();
+  cliAdd("led", cliLed);
+  cliAdd("info", cliInfo);
+  cliAdd("sys", cliSys);
+  cliAdd("gpio", cliGpio);
+  cliAdd("md", cliMd);
+  cliAdd("button", cliButton);
+  cliAdd("temp", cliTemp);
+//   cliAdd("cls", cliclear);
+
+
 }
 
 void apMain(void) {
