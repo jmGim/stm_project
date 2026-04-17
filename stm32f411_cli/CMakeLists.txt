@@ -80,3 +80,13 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
     # Add user defined libraries
 )
+
+
+## #CMakeLists.txt에서 컴파일 최적화 옵션 설정
+# # 타겟 생성 (예: stm32_freertos.elf)
+# add_executable(${PROJECT_NAME}.elf ${SOURCES})
+
+# # C와 C++ 컴파일러에 최적화(-Og) 및 디버그 심볼(-g3) 옵션 추가
+# target_compile_options(${PROJECT_NAME} PRIVATE
+#     $<$<COMPILE_LANGUAGE:C>:-Og -g3>
+# )

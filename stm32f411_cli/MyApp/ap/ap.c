@@ -1,22 +1,25 @@
 
 #include "ap.h"
 
-static uint32_t temp_period = 0;
+#include "led.h"
+#include "log_def.h"
+
+static uint32_t temp_read_period = 0;
 
 void cliTemp(uint8_t argc, char **argv) {
   if (argc == 1) {
-    if(temp_period > 0) {
+    if(temp_read_period > 0) {
       tempStopAuto();
     }
-    temp_period = 0; // Disable periodic reporting
+    temp_read_period = 0; // Disable periodic reporting
     float t = tempReadSingle();
     cliPrintf("Current Temperature: %.2f °C\r\n", t);
   } else if (argc == 2) {
     int period = atoi(argv[1]);
     if (period > 0) {
       tempStartAuto();
-      temp_period = period;
-      cliPrintf("Temperature reporting every %d ms\r\n", temp_period);
+      temp_read_period = period;
+      cliPrintf("Temperature reporting every %d ms\r\n", temp_read_period);
     } else {
       tempStopAuto();
       cliPrintf("Invalid period. Please provide a positive integer.\r\n");
@@ -28,20 +31,23 @@ void cliTemp(uint8_t argc, char **argv) {
     cliPrintf("       temp [period_ms]\r\n");
   }
 }
+
+
+
 // button on/off --> enable/disable
 void cliButton(uint8_t argc, char **argv){
     if(argc == 2) {
         if(strcmp(argv[1], "enable") == 0) {
             buttonEnable(true);
-            cliPrintf("Button Interrupt Report : Enabled\r\n");
+            LOG_INF("Button Interrupt Report : Enabled\r\n");
         } else if(strcmp(argv[1], "disable") == 0) {
             buttonEnable(false);
             
-            cliPrintf("Button Interrupt Report : Disabled\r\n");
+            LOG_INF("Button Interrupt Report : Disabled\r\n");
         } 
     } else {
-        cliPrintf("Usage: button [enable|disable]\r\n");
-        cliPrintf("Current Status : %s\r\n", buttonGetEnable() ? "Enabled" : "Disabled");
+        LOG_WRN("Usage: button [enable|disable]\r\n");
+        LOG_WRN("Current Status : %s\r\n", buttonGetEnable() ? "Enabled" : "Disabled");
     }
 }
 
@@ -81,7 +87,7 @@ void cliMd(uint8_t argc, char **argv){
             cliPrintf("%02X ", val);
           } 
           else {
-            cliPrintf("Not Vaild Address\r\n");
+            LOG_ERR("Not Vaild Address\r\n");
             break;
           } 
         }
@@ -98,7 +104,7 @@ void cliMd(uint8_t argc, char **argv){
             cliPrintf("%c", (val >= 32 && val <= 126) ? val : '.');
           } 
           else {
-            cliPrintf("Not Vaild Address\r\n");
+            LOG_ERR("Not Vaild Address\r\n");
             break;
           } 
         }
@@ -109,8 +115,8 @@ void cliMd(uint8_t argc, char **argv){
     // uint32_t data = *((volatile uint32_t*)addr);
     // cliPrintf("0x%08X: 0x%08X\r\n", addr, data);
   } else {
-    cliPrintf("Usage: md [address(hex)] [length]\r\n");
-    cliPrintf("       md 0x)80000000 32\r\n");
+    LOG_WRN("Usage: md [address(hex)] [length]\r\n");
+    LOG_WRN("       md 0x)80000000 32\r\n");
   } 
 }
 
@@ -128,7 +134,7 @@ void cliGpio(uint8_t argc, char **argv){
         if (strcmp(argv[1], "read") == 0) {
             
             if (state < 0) {
-                cliPrintf("Invalid PORT or PIN_num (Ex. A5, B12, C0, ...) \r\n");
+                LOG_ERR("Invalid PORT or PIN_num (Ex. A5, B12, C0, ...) \r\n");
                 
             } else {
                 cliPrintf("GPIO %c%d: %d\r\n\n", toupper(port_char), pin_num, state);
@@ -139,18 +145,18 @@ void cliGpio(uint8_t argc, char **argv){
             if(gpioExtWrite(port_idx, pin_num , val) == true){
                 cliPrintf("GPIO %c%d Set to %d\r\n", toupper(port_char), pin_num, val);
             } else {
-                cliPrintf("Invalid PORT or PIN (Ex. A5, B12, C0, ...) \r\n");
-                cliPrintf("Failed to write to GPIO %c%d\r\n", toupper(port_char), pin_num);
+                LOG_ERR("Invalid PORT or PIN (Ex. A5, B12, C0, ...) \r\n");
+                LOG_ERR("Failed to write to GPIO %c%d\r\n", toupper(port_char), pin_num);
             }
           }
           else {
-              cliPrintf("Usage: gpio read [a~h][0~15] \r\n");
-              cliPrintf("       gpio write [a~h][0~15] [0, 1]\r\n");
+              LOG_WRN("Usage: gpio read [a~h][0~15] \r\n");
+              LOG_WRN("       gpio write [a~h][0~15] [0, 1]\r\n");
           }
         
     } else {
-        cliPrintf("Usage: gpio read [a~h][0~15] \r\n");
-        cliPrintf("       gpio write [a~h][0~15] [0, 1]\r\n");
+        LOG_WRN("Usage: gpio read [a~h][0~15] \r\n");
+        LOG_WRN("       gpio write [a~h][0~15] [0, 1]\r\n");
     }
 }
 
@@ -161,42 +167,42 @@ void cliLed(uint8_t argc, char **argv) {
     if (strcmp(argv[1], "on") == 0) {
       led_toggle_period = 0; // Disable automatic toggling
       ledOn();
-      cliPrintf("LED ON\r\n");
+      LOG_INF("LED ON\r\n");
     } else if (strcmp(argv[1], "off") == 0) {
       led_toggle_period = 0; // Disable automatic toggling
       ledOff();
-      cliPrintf("LED OFF\r\n");
+      LOG_INF("LED OFF\r\n");
     } else if (strcmp(argv[1], "toggle") == 0) {
       if(argc == 3) {
         led_toggle_period = atoi(argv[2]);
         if (led_toggle_period > 0) {
-          cliPrintf("LED  Auto-Toggled!!\r\n");
+          LOG_INF("LED  Auto-Toggled!!\r\n");
         } else {
-          cliPrintf("Invalid toggle period.\r\n");
+          LOG_ERR("Invalid toggle period.\r\n");
         }
         
       }  
       else {
         led_toggle_period  = 0; // Disable automatic toggling
         ledToggle();
-        cliPrintf("LED TOGGLE\r\n");
+        LOG_INF("LED TOGGLE\r\n");
       }
     } else {
-       cliPrintf("Invalid Command\r\n");
+       LOG_ERR("Invalid Command\r\n");
     }
   } else {
-    cliPrintf("Usage: led [on|off|toggle]\r\n");
-    cliPrintf("       led toggle \r\n");
-    cliPrintf("       led toggle [period_ms]\r\n");
+    LOG_WRN("Usage: led [on|off|toggle]\r\n");
+    LOG_WRN("       led toggle \r\n");
+    LOG_WRN("       led toggle [period_ms]\r\n");
   }
 }
 
 void cliInfo(uint8_t argc, char **argv) {
   if (argc == 1) {
-    cliPrintf("=================================\r\n");
-    cliPrintf("  HW Model    :    STM32F411CEU6\r\n");
-    cliPrintf("  FW Version  :    V1.0.0\r\n");
-    cliPrintf(" Build Date : %s %s\r\n", __DATE__, __TIME__);
+    LOG_INF("=================================\r\n");
+    LOG_INF("  HW Model    :    STM32F411CEU6\r\n");
+    LOG_INF("  FW Version  :    V1.0.0\r\n");
+    LOG_INF(" Build Date : %s %s\r\n", __DATE__, __TIME__);
 
     uint32_t uid0, uid1, uid2;
     uint32_t hal = HAL_GetHalVersion();
@@ -207,11 +213,11 @@ void cliInfo(uint8_t argc, char **argv) {
     uid2 = HAL_GetUIDw2();
 
     uint32_t rev = HAL_GetREVID();
-        cliPrintf("  HW Revision : %d\r\n", rev);
+        LOG_INF("  HW Revision : %d\r\n", rev);
     uint32_t dev = HAL_GetDEVID();
-        cliPrintf("  Device ID   : %d\r\n", dev);   
+        LOG_INF("  Device ID   : %d\r\n", dev);   
     
-    cliPrintf("    Serial Number : %08x-%08x-%08x\r\n", uid0, uid1, uid2);
+    LOG_INF("    Serial Number : %08x-%08x-%08x\r\n", uid0, uid1, uid2);
     cliPrintf("=================================\r\n");
 
   }
@@ -237,6 +243,7 @@ void ledSystemTask(void *argument) {
   while (1) {
     if (led_toggle_period > 0) {
       ledToggle();
+      LOG_DBG("LED Toggled by System Task!!\r\n");  // 
       osDelay(led_toggle_period); // Toggle LED every 1000ms (1 second)
     } else {
       osDelay(50); // Check every 100ms if the toggle period has been set
@@ -251,10 +258,10 @@ void ledSystemTask(void *argument) {
 
 void tempSystemTask(void *argument) {
   while (1) {
-    if (temp_period > 0) {
+    if (temp_read_period > 0) {
       float t = tempReadAuto();
       cliPrintf("Temperature: %.2f °C\r\n", t);
-      osDelay(temp_period); // 2초마다 온도 읽기
+      osDelay(temp_read_period); // 2초마다 온도 읽기
     }
     else {
       osDelay(50);
@@ -271,8 +278,21 @@ void StartDefaultTask(void *argument) {
     apMain();
   }
 }
+
+void apStopAutoTask(void){
+  led_toggle_period = 0;
+  temp_read_period = 0;
+  tempStopAuto();
+  ledOff();
+}
+
+
 void apInit(void) {
+  LOG_INF("Application Init... started\r\n");
   hwInit();
+  cliSetCtrlCHandler(apStopAutoTask);
+
+
   cliAdd("led", cliLed);
   cliAdd("info", cliInfo);
   cliAdd("sys", cliSys);

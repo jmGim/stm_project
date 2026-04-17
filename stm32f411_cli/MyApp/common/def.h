@@ -3,9 +3,11 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+
 #include <ctype.h>
 #include <sys/types.h>
 #endif //__COMMON_DEF_H_

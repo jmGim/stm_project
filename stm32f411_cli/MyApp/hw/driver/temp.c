@@ -25,7 +25,7 @@ float tempReadSingle(void){
     // Implementation for reading temperature
     uint32_t adc_val = 0; // Replace with actual ADC reading code
     tempStartAuto();
-    HAL_Delay(104); // ADC 변환이 완료될 때까지 잠시 대기
+    HAL_Delay(10); // ADC 변환이 완료될 때까지 잠시 대기
     
     adc_val = adc_dma_buf[0]; // ADC에서 단일 변환 결과 읽기
     tempStopAuto(); // 자동 온도 읽기 중지

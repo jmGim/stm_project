@@ -2,10 +2,7 @@
 #include "cmsis_os2.h"
 #include "cli.h"
 
-#include <stdarg.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
+#include "def.h"
 
 #define CLI_LINE_BUF_MAX 32
 #define CLI_CMD_LIST_MAX 32
@@ -38,7 +35,7 @@ typedef enum {
 } cli_input_state_t;
 
 static cli_input_state_t input_state = CLI_STATE_NORMAL;
-
+static cli_callback_t ctrl_c_handler = NULL;
 // refactoring CLI functions 
 // static void cliRedrawTail(void){
 
@@ -146,8 +143,16 @@ void cliMain(void) {
     processAnsiEscape(rx_data);
     return;
   }
-  switch (rx_data)
-  {
+  switch (rx_data) {
+  case 0x03:
+    if (ctrl_c_handler != NULL) {
+      ctrl_c_handler();
+    }
+    cliPrintf("\r\n^C \r\nCLI>");
+    cli_line_idx = 0;
+    // cliPrintf("\b \b");
+    break;
+
   case 0x1B: // esc
     input_state = CLI_STATE_ESC_RCVD;
     break;
@@ -164,9 +169,6 @@ void cliMain(void) {
       handleCharInsert(rx_data);
     break;
   }
-  
-
-
 }
 
 static void cliHelp(uint8_t argc, char *argv[]) {
@@ -186,13 +188,18 @@ static void cliclear(uint8_t argc, char *argv[]) {
 }
 
 void cliInit() {
+  ctrl_c_handler = NULL;
   cli_cmd_count = 0;
   cli_line_idx = 0;
 
   cliAdd("help", cliHelp);
   cliAdd("cls", cliclear);
+  cliAdd("log", cliLog);
 }
 
+void cliSetCtrlCHandler(cli_callback_t handler){
+  ctrl_c_handler = handler;
+}
 void cliPrintf(const char *fmt, ...) {
   char buf[128];
   uint32_t len;
@@ -243,92 +250,3 @@ bool cliAdd(const char *cmd_str, void (*cmd_func)(uint8_t argc, char **argv)) {
 
   return true;
 }
-
-// void cliMain__() {
-//   if (uartAvailable(0) > 0) {
-//     uint8_t rx_data = uartRead(0);
-//     if (esc_state == 0) {
-//       if ((rx_data == 0x1B)) { // ESC
-//         esc_state = 1;
-//       } else {
-//         if ((rx_data == '\r') || (rx_data == '\n')) {
-
-//           cliPrintf("\r\n");
-
-//           cli_line_buf[cli_line_idx] = '\0'; // 
-//           // 실행전 히스토리 버퍼에 복사 - 나중에 방향키 눌렀을 때 사용
-//           strncpy(cli_history_buf[cli_hist_write], cli_line_buf, CLI_LINE_BUF_MAX);
-//           cli_hist_write = (cli_hist_write + 1) % CLI_HIST_MAX;
-//           cli_hist_depth = 0;
-
-//           if(cli_hist_count < CLI_HIST_MAX) {
-//             cli_hist_count++;
-//           } 
-
-//           cliParseArgs(cli_line_buf);
-//           cliRunCommand();
-
-//           cliPrintf("CLI> ");
-//           cli_line_idx = 0;
-//         } else if (rx_data == '\b' || rx_data == 127) {
-//           if (cli_line_idx > 0) {
-//             cli_line_idx--;
-//             cliPrintf("\b \b");
-//           }
-//         } else {
-//           cliPrintf("%c", rx_data);
-//           cli_line_buf[cli_line_idx++] = rx_data;
-//           if (cli_line_idx >= CLI_LINE_BUF_MAX)
-//             cli_line_idx = 0;
-//         }
-//       }
-//     }
-
-//     else if (esc_state == 1) {
-//       if (rx_data == '[') {
-//         esc_state = 2;
-//       } else {
-//         esc_state = 0;
-//       }
-//     } else if (esc_state == 2) {
-//       if (rx_data == 'A') { // up
-//         if(cli_hist_depth < cli_hist_count) {
-//             cli_hist_depth++;
-//             for (uint16_t i = 0; i < cli_line_idx; i++) {
-//                 cliPrintf("\b \b");
-//             }
-//             int idx = (cli_hist_write + CLI_HIST_MAX - cli_hist_depth) % CLI_HIST_MAX;
-//             strncpy(cli_line_buf, cli_history_buf[idx], CLI_LINE_BUF_MAX - 1);
-//         }
-//         // cliPrintf("%s", cli_history_buf);
-//         // strncpy(cli_line_buf, cli_history_buf, CLI_LINE_BUF_MAX - 1);
-//         cli_line_idx = strlen(cli_line_buf);
-//         cliPrintf("%s", cli_line_buf);
-
-//       } else if (rx_data == 'B') { // down
-//         if(cli_hist_depth > 0) {
-//           cli_hist_depth--;
-//             for (uint16_t i = 0; i < cli_line_idx; i++) {
-//                 cliPrintf("\b \b");
-//             }
-//             if(cli_hist_depth == 0) {
-//                 cli_line_buf[0] = '\0';
-//                 cli_line_idx = 0;
-//                 // cliPrintf("%s", cli_line_buf);
-//             } else { // 중간 깊이인 경우
-//                 int idx = (cli_hist_write + CLI_HIST_MAX - cli_hist_depth) % CLI_HIST_MAX;
-//                 strncpy(cli_line_buf, cli_history_buf[idx], CLI_LINE_BUF_MAX - 1);
-//                 cliPrintf("%s", cli_line_buf);
-//                 cli_line_idx = strlen(cli_line_buf);
-//             }
-//         }
-//       } else if (rx_data == 'C') { // right
-//                                    // cliPrintf("RIGHT\r\n");
-//       } else if (rx_data == 'D') { // left
-//                                    // cliPrintf("LEFT\r\n");
-//       } else {
-//         esc_state = 0;
-//       }
-//     }
-//   }
-// }
