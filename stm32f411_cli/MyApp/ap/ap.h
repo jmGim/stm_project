@@ -7,7 +7,7 @@
 #include "hw.h"
 
 #include "cli.h"
-#include "cmsis_os2.h"
+#include "monitor.h"
 
 void apInit(void);
 void apMain(void);

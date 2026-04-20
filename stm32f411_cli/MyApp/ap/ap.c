@@ -1,36 +1,9 @@
 
 #include "ap.h"
+#include "monitor.h"
+#include <stdint.h>
 
-#include "led.h"
-#include "log_def.h"
 
-static uint32_t temp_read_period = 0;
-
-void cliTemp(uint8_t argc, char **argv) {
-  if (argc == 1) {
-    if(temp_read_period > 0) {
-      tempStopAuto();
-    }
-    temp_read_period = 0; // Disable periodic reporting
-    float t = tempReadSingle();
-    cliPrintf("Current Temperature: %.2f °C\r\n", t);
-  } else if (argc == 2) {
-    int period = atoi(argv[1]);
-    if (period > 0) {
-      tempStartAuto();
-      temp_read_period = period;
-      cliPrintf("Temperature reporting every %d ms\r\n", temp_read_period);
-    } else {
-      tempStopAuto();
-      cliPrintf("Invalid period. Please provide a positive integer.\r\n");
-    }
-
-  } else {
-    tempStopAuto();
-    cliPrintf("Usage: temp\r\n");
-    cliPrintf("       temp [period_ms]\r\n");
-  }
-}
 
 
 
@@ -51,7 +24,7 @@ void cliButton(uint8_t argc, char **argv){
     }
 }
 
-
+ 
 static bool isSafeAddress(uint32_t addr) {
     // Define the valid memory regions for STM32F411CEU6
     if ((addr >= 0x08000000) && (addr <0x0807FFFF)) { // Flash memory
@@ -239,14 +212,58 @@ void cliSys(uint8_t argc, char **argv) {
 }
 
 
+static uint32_t temp_read_period = 0;
+
+
+void cliTemp(uint8_t argc, char **argv) {
+  if (argc == 1) {
+    if(temp_read_period > 0) {
+      tempStopAuto();
+    }
+    temp_read_period = 0; // Disable periodic reporting
+    float t = tempReadSingle();
+    cliPrintf("Current Temperature: %.2f °C\r\n", t);
+  } else if (argc == 2) {
+    int period = atoi(argv[1]);
+    if (period > 0) {
+      tempStartAuto();
+      temp_read_period = period;
+      cliPrintf("Temperature reporting every %d ms\r\n", temp_read_period);
+    } else {
+      tempStopAuto();
+      LOG_ERR("Invalid period. Please provide a positive integer.\r\n");
+    }
+
+  } else {
+    tempStopAuto();
+    cliPrintf("Usage: temp\r\n");
+    cliPrintf("       temp [period_ms]\r\n");
+  }
+}
+
+
+
 void ledSystemTask(void *argument) {
   while (1) {
     if (led_toggle_period > 0) {
+      
       ledToggle();
-      LOG_DBG("LED Toggled by System Task!!\r\n");  // 
+      bool led_state = ledGetStatus();
+
+      if (isMonitoringOn()){
+        monitorUpdateValue(ID_OUT_LED_STATE, TYPE_BOOL, &led_state );
+
+      } else {
+        LOG_DBG("LED Toggled by System Task!!\r\n");  // 
+      }
+
       osDelay(led_toggle_period); // Toggle LED every 1000ms (1 second)
     } else {
-      osDelay(50); // Check every 100ms if the toggle period has been set
+        bool led_state=ledGetStatus();
+        if(isMonitoringOn()){
+          monitorUpdateValue(ID_OUT_LED_STATE,TYPE_BOOL,&led_state);
+        }
+        osDelay(50); // Check every 100ms if the toggle period has been set
     }
     // ledToggle();
     // vTaskDelay(1000);  // = osDelay(1000); // FreeRTOS의 딜레이 함수, 다른 Task의 실행을 허용하면서 현재 Task를 대기 상태로 만듦.
@@ -255,12 +272,26 @@ void ledSystemTask(void *argument) {
   }
 }
 
+// bool led_state = ledGetStatus();
+
+//           if (isMonitoringOn()){
+//             monitorUpdateValue(ID_OUT_LED_STATE, TYPE_BOOL, &led_state );
+
+//           }
 
 void tempSystemTask(void *argument) {
   while (1) {
     if (temp_read_period > 0) {
       float t = tempReadAuto();
-      cliPrintf("Temperature: %.2f °C\r\n", t);
+
+      if(isMonitoringOn()){
+       monitorUpdateValue(ID_ENV_TEMP, TYPE_FLOAT, &t);
+
+      } else {
+        cliPrintf("Current Temp : ");
+        cliPrintf(" %.2f °C\r\n", t);
+      }
+      // cliPrintf("Temperature: %.2f °C\r\n", t);
       osDelay(temp_read_period); // 2초마다 온도 읽기
     }
     else {
@@ -268,6 +299,18 @@ void tempSystemTask(void *argument) {
     }
   }
 }
+
+static uint32_t monitor_period = 0;
+void monitorSystemTask(void *argument){
+  while(1) {
+    if(isMonitoringOn()){
+      monitorSendPacket();
+    }
+    monitor_period = monitorGetPeriod(); // no set
+    osDelay(monitor_period);
+  }
+}
+
 
 void StartDefaultTask(void *argument) {
   apInit();
@@ -280,18 +323,34 @@ void StartDefaultTask(void *argument) {
 }
 
 void apStopAutoTask(void){
+  monitorOff();
   led_toggle_period = 0;
   temp_read_period = 0;
   tempStopAuto();
   ledOff();
 }
 
+void apSyncPeriods(uint32_t period){
+  if(period >0){
+    tempStopAuto();
+    temp_read_period=period;
+    led_toggle_period=period;
+    LOG_INF("Task Synchronized to %d ms", period);
+  }
+  else{
+    temp_read_period=0;
+    led_toggle_period=0;
+  }
+}
 
 void apInit(void) {
-  LOG_INF("Application Init... started\r\n");
   hwInit();
-  cliSetCtrlCHandler(apStopAutoTask);
+  LOG_INF("Application Init... started\r\n");
+  logInit();
+  monitorInit();
 
+  monitorSetSyncHandler(apSyncPeriods);
+  cliSetCtrlCHandler(apStopAutoTask);
 
   cliAdd("led", cliLed);
   cliAdd("info", cliInfo);
